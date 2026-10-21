@@ -77,6 +77,7 @@ Le nouveau fichier est créé **dans le même dossier**, avec le même nom et la
 photo.png   →  photo.jpg
 photo.png   →  photo (1).jpg      si photo.jpg existe déjà
 rapport.pdf →  rapport - page 1.png, rapport - page 2.png, …   (PDF de plusieurs pages)
+rapport.pdf →  rapport (compressé).pdf                          (compression)
 ```
 
 En cas d'échec (fichier protégé, codec manquant, dossier en lecture seule…), le centre de la roue devient
@@ -100,7 +101,7 @@ rouge avec le message d'erreur ; aucun fichier partiel n'est laissé.
 | 🎞️ GIF | `gif` | `png` `jpg` `webp` `bmp` `tiff` `pdf` `mp4` `webm` |
 | 📱 Photos modernes | `heic` `avif` | `jpg` `png` `webp` `bmp` `tiff` `pdf` |
 | ✏️ Vectoriel | `svg` | `png` `jpg` `pdf` `ico` |
-| 📄 PDF | `pdf` | `png` `jpg` (une image par page) |
+| 📄 PDF | `pdf` | `png` `jpg` (une image par page), **Compresser** (équilibré ou maximal) |
 | 🎵 Audio | `mp3` `wav` `flac` `ogg` `m4a` `opus` `aac` `wma` `aiff` | `mp3` `wav` `flac` `ogg` `m4a` `opus` |
 | 🎬 Vidéo | `mp4` `mkv` `webm` `mov` `avi` `wmv` `flv` `m4v` `mpg` `ts` `3gp` | `mp4` `mkv` `webm` `mov` `avi` `gif` `mp3` `wav` |
 | 📝 Texte | `txt` | `md` `html` `docx` `rtf` `pdf` |
@@ -136,6 +137,36 @@ Rendu par Edge en arrière-plan, avec la transparence conservée en PNG. Les pet
 ### PDF → images
 Rendu par le moteur PDF intégré à Windows (`Windows.Data.Pdf`), à environ 200 dpi. Chaque page donne un
 fichier. Les PDF protégés par mot de passe sont refusés.
+
+### Compresser un PDF
+Sur un PDF, la roue propose deux entrées **Compresser** :
+
+| Niveau | Images | Usage |
+|---|---|---|
+| **Équilibré** | 2200 px max sur le grand côté, JPEG qualité 72 | à l'écran comme à l'impression, différence à peine visible |
+| **Maximal** | 1400 px max, JPEG qualité 50 | envoi par mail ou formulaire en ligne avec limite de taille |
+
+Le compresseur est intégré, sans Ghostscript ni autre outil :
+- il réencode et réduit les **images** (photos, scans), qui pèsent presque toujours l'essentiel du fichier ;
+- il recompresse les autres flux et **supprime les objets inutiles** (anciennes versions laissées par des
+  modifications successives, objets orphelins) ;
+- le **texte, les polices et les dessins vectoriels ne sont pas touchés** : le texte reste net et sélectionnable,
+  les liens et la structure sont conservés ;
+- les transparences (masques) restent sans perte.
+
+Le résultat est enregistré sous `nom (compressé).pdf` et la roue affiche le gain (par exemple `−84 % · 277 Ko`).
+Si le gain serait inférieur à 3 %, aucun fichier n'est créé et la roue l'indique : c'est le cas des PDF
+déjà optimisés ou dont le poids vient d'une police intégrée plutôt que d'images. Les PDF protégés par mot
+de passe ne sont pas pris en charge.
+
+Exemples mesurés :
+
+| PDF | Original | Équilibré | Maximal |
+|---|---|---|---|
+| Page web imprimée avec photos (8 pages) | 1,77 Mo | 284 Ko (−84 %) | — |
+| Document avec grande photo | 2,8 Mo | 184 Ko (−94 %) | 84 Ko (−98 %) |
+| Scan / photo pleine page | 458 Ko | 151 Ko (−67 %) | 55 Ko (−88 %) |
+| Document texte modifié plusieurs fois | 548 Ko | 483 Ko (−12 %) | identique |
 
 ### Audio et vidéo (ffmpeg)
 | Cible | Réglage |
@@ -208,8 +239,8 @@ Ctrl + clic ──► hook souris global (thread dédié, ne ralentit jamais la 
 
 - Les fenêtres transparentes plein écran (overlay NVIDIA, Discord…) ne gênent pas la détection.
 - Si les extensions sont masquées dans l'Explorateur, le vrai fichier est retrouvé sur le disque.
-- Les formats DOCX, XLSX, ICO et PDF (images) sont écrits par RoueConvert lui-même, sans Office ni
-  bibliothèque externe.
+- Les formats DOCX, XLSX, ICO, PDF (images) et la compression PDF sont gérés par RoueConvert lui-même,
+  sans Office ni bibliothèque externe.
 
 ### Structure du code
 
@@ -222,6 +253,7 @@ Ctrl + clic ──► hook souris global (thread dédié, ne ralentit jamais la 
 | `src/Formats.cs` | table des conversions possibles par extension |
 | `src/Converter.cs` | aiguillage vers le bon moteur, nom du fichier de sortie |
 | `src/ImageConv.cs` · `PdfWriter.cs` · `PdfRender.cs` | images, image → PDF, PDF → images |
+| `src/PdfCompress.cs` | compresseur PDF intégré (lecture des objets, réencodage des images, réécriture) |
 | `src/Media.cs` · `Edge.cs` · `Tools.cs` | ffmpeg, Edge headless, recherche des outils |
 | `src/DocConv.cs` · `DataConv.cs` | documents texte, données tabulaires et structurées |
 | `src/Cli.cs` | version console pour tester |
@@ -246,6 +278,7 @@ Cela produit dans `bin\` :
 bin\RoueConvert.Cli.exe tools                     # outils détectés
 bin\RoueConvert.Cli.exe targets photo.png         # formats proposés
 bin\RoueConvert.Cli.exe convert photo.png webp    # conversion directe
+bin\RoueConvert.Cli.exe convert doc.pdf compress   # compression PDF (compress+ = maximal)
 bin\RoueConvert.Cli.exe probe 800 450             # quel fichier est sous ce point de l'écran ?
 bin\RoueConvert.exe --wheel photo.png             # affiche la roue au curseur pour ce fichier
 ```
@@ -263,6 +296,8 @@ Le code est en C# 5 (la version du compilateur intégré), avec WPF pour l'inter
 - Les conversions de documents conservent la structure et la mise en forme simple, mais pas les mises en
   page complexes, les images intégrées aux DOCX/RTF, ni les formules Excel (seules les valeurs sont lues).
 - Seule la première feuille d'un classeur XLSX est convertie.
+- La compression PDF ne réduit pas les polices intégrées en entier (pas de sous-ensemble de police) et
+  laisse telles quelles les images CMJN, indexées ou en noir et blanc 1 bit.
 - Si l'Explorateur est lancé en administrateur, RoueConvert doit l'être aussi pour l'atteindre.
 
 ---

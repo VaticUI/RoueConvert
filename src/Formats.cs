@@ -36,7 +36,7 @@ namespace RoueConvert
             {"ogg","Vorbis"},{"m4a","AAC"},{"opus","Opus"},{"mp4","Vidéo"},{"mkv","Matroska"},{"webm","Vidéo web"},
             {"mov","QuickTime"},{"avi","Vidéo"},{"txt","Texte"},{"md","Markdown"},{"html","Page web"},{"docx","Word"},
             {"rtf","Texte riche"},{"csv","Tableur"},{"tsv","Tabulé"},{"xlsx","Excel"},{"json","Données"},{"xml","Données"},
-            {"yaml","Config"}
+            {"yaml","Config"},{"compress","Équilibré"},{"compress+","Maximal"}
         };
 
         public static string Norm(string pathOrExt)
@@ -62,7 +62,7 @@ namespace RoueConvert
             else if (e == "heic" || e == "avif") t = new[] { "jpg", "png", "webp", "bmp", "tiff", "pdf" };
             else if (Raster.Contains(e)) t = RasterOut;
             else if (e == "svg") t = new[] { "png", "jpg", "pdf", "ico" };
-            else if (e == "pdf") t = new[] { "png", "jpg" };
+            else if (e == "pdf") t = new[] { "compress", "png", "jpg", "compress+" };
             else if (Audio.Contains(e)) t = AudioOut;
             else if (Video.Contains(e)) t = VideoOut;
             else if (e == "txt") t = new[] { "md", "html", "docx", "rtf", "pdf" };
@@ -86,9 +86,17 @@ namespace RoueConvert
                     .ToArray();
         }
 
+        public static bool IsCompress(string e) { return e == "compress" || e == "compress+"; }
+
+        // Big text on a wheel slice.
+        public static string Display(string e)
+        {
+            return IsCompress(e) ? "Compresser" : "." + e.ToUpperInvariant();
+        }
+
         public static Fam FamilyOf(string e)
         {
-            if (e == "pdf") return Fam.Pdf;
+            if (e == "pdf" || IsCompress(e)) return Fam.Pdf;
             if (e == "svg") return Fam.Vector;
             if (Raster.Contains(e)) return Fam.Image;
             if (Audio.Contains(e)) return Fam.Audio;

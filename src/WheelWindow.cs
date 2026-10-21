@@ -34,6 +34,12 @@ namespace RoueConvert
         Ellipse disc;
         bool working, closing;
         int hovered = -1;
+        string lastTarget;
+
+        static string Size(long b)
+        {
+            return b >= 1048576 ? (b / 1048576.0).ToString("0.0") + " Mo" : Math.Max(1, b / 1024) + " Ko";
+        }
 
         public bool Working { get { return working; } }
 
@@ -177,9 +183,9 @@ namespace RoueConvert
                 wheel.Children.Add(rim);
 
                 double mid = (a0 + a1) / 2 * Math.PI / 180, lr = (Ri + R) / 2 + 2;
-                var st = new StackPanel { Width = 84, IsHitTestVisible = false };
+                var st = new StackPanel { Width = 96, IsHitTestVisible = false };
                 st.Children.Add(new TextBlock { Text = Glyph(Formats.FamilyOf(targets[i])), FontFamily = IconFont, FontSize = 15, Foreground = new SolidColorBrush(acc), HorizontalAlignment = HorizontalAlignment.Center, Margin = new Thickness(0, 0, 0, 2) });
-                st.Children.Add(new TextBlock { Text = "." + targets[i].ToUpperInvariant(), FontSize = n > 8 ? 13 : 15, FontWeight = FontWeights.SemiBold, Foreground = Brushes.White, HorizontalAlignment = HorizontalAlignment.Center });
+                st.Children.Add(new TextBlock { Text = Formats.Display(targets[i]), FontSize = Formats.Display(targets[i]).Length > 6 ? 13 : n > 8 ? 13 : 15, FontWeight = FontWeights.SemiBold, Foreground = Brushes.White, HorizontalAlignment = HorizontalAlignment.Center });
                 st.Children.Add(new TextBlock { Text = Formats.Label(targets[i]), FontSize = 10, Foreground = new SolidColorBrush(Color.FromArgb(0xA0, 0xFF, 0xFF, 0xFF)), HorizontalAlignment = HorizontalAlignment.Center });
                 st.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
                 Canvas.SetLeft(st, c + lr * Math.Cos(mid) - st.DesiredSize.Width / 2);
@@ -270,7 +276,7 @@ namespace RoueConvert
                 st.BeginAnimation(ScaleTransform.ScaleXProperty, new DoubleAnimation(to, TimeSpan.FromMilliseconds(110)));
                 st.BeginAnimation(ScaleTransform.ScaleYProperty, new DoubleAnimation(to, TimeSpan.FromMilliseconds(110)));
             }
-            centerHint.Text = i >= 0 ? "→ ." + targets[i].ToUpperInvariant() : "Convertir en…";
+            centerHint.Text = i >= 0 ? "→ " + Formats.Display(targets[i]) : "Convertir en…";
             centerHint.Foreground = i >= 0 ? new SolidColorBrush(TargetColor(targets[i])) : new SolidColorBrush(Color.FromArgb(0x90, 0xFF, 0xFF, 0xFF));
         }
 
@@ -298,6 +304,7 @@ namespace RoueConvert
             Hover(i);
             working = true;
             string target = targets[i];
+            lastTarget = target;
             Color acc = TargetColor(target);
             for (int k = 0; k < slices.Count; k++)
             {
@@ -305,7 +312,7 @@ namespace RoueConvert
                 slices[k].Opacity = o; labels[k].Opacity = o;
                 slices[k].Cursor = Cursors.Arrow;
             }
-            centerBig.Text = "." + target.ToUpperInvariant();
+            centerBig.Text = Formats.IsCompress(target) ? ".PDF" : Formats.Display(target);
             centerBig.Foreground = new SolidColorBrush(acc);
             centerHint.Text = "Conversion…";
             ring.Stroke = new SolidColorBrush(acc);
@@ -359,6 +366,12 @@ namespace RoueConvert
             centerBig.Foreground = new SolidColorBrush(green);
             centerName.Text = outs.Count == 1 ? IOPath.GetFileName(outs[0]) : outs.Count + " fichiers";
             centerHint.Text = "Terminé";
+            centerHint.Foreground = new SolidColorBrush(green);
+            if (outs.Count == 1 && Formats.IsCompress(lastTarget))
+            {
+                long a = new System.IO.FileInfo(src).Length, b = new System.IO.FileInfo(outs[0]).Length;
+                centerHint.Text = "−" + Math.Round(100.0 * (a - b) / a) + " % · " + Size(b);
+            }
             var timer = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromMilliseconds(1100) };
             timer.Tick += delegate { timer.Stop(); working = false; FadeClose(); };
             timer.Start();

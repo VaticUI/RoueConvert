@@ -18,6 +18,14 @@ namespace RoueConvert
             string baseName = Path.GetFileNameWithoutExtension(src);
             var outs = new List<string>();
 
+            if (se == "pdf" && Formats.IsCompress(target))
+            {
+                string cdst = UniquePath(dir, baseName + " (compressé)", "pdf");
+                try { PdfCompress.Compress(src, cdst, target == "compress+", progress); }
+                catch { try { if (File.Exists(cdst)) File.Delete(cdst); } catch { } throw; }
+                outs.Add(cdst);
+                return outs;
+            }
             if (se == "pdf")
             {
                 outs.AddRange(PdfRender.ToImages(src, dir, baseName, target, progress));
